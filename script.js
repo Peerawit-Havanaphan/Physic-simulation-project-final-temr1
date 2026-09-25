@@ -15,7 +15,8 @@
         lblMuS = document.getElementById('lblMuS'), lblMuK = document.getElementById('lblMuK'), lblAngle = document.getElementById('lblAngle');
 
   const statT = document.getElementById('statT'), statV = document.getElementById('statV'),
-        statS = document.getElementById('statS'), statA = document.getElementById('statA');
+        statS = document.getElementById('statS'), statA = document.getElementById('statA'),
+        statFnet = document.getElementById('statFnet');
   const statusBadge = document.getElementById('statusBadge');
   const formulaBox = document.getElementById('formulaBox');
 
@@ -116,6 +117,11 @@
     statV.textContent = v.toFixed(2);
     statS.textContent = s.toFixed(2);
     statA.textContent = a.toFixed(2);
+    // Newton's 2nd law the other way round: once a is known, F_net = m·a.
+    // This is the same net force that produced the motion above — showing it
+    // here makes the link between "แรงลัพธ์" and the resulting a/v/s explicit.
+    const mNow = parseFloat(massEl.value);
+    statFnet.textContent = (mNow * a).toFixed(2);
 
     const moving = Math.abs(v) > 0.01;
     if (stopped && stopReason) {
@@ -134,9 +140,17 @@
       const fsMax = muS * m * g;
       const fk = muK * m * g;
       if (F <= fsMax) {
-        formulaBox.innerHTML = `F = ${F.toFixed(1)} N ≤ แรงเสียดทานสถิตสูงสุด f_s,max = μs·mg = ${fsMax.toFixed(2)} N<br>แรงเสียดทานสถิตต้านไว้พอดี วัตถุจึงไม่ขยับ`;
+        formulaBox.innerHTML =
+          `<b>แรงลัพธ์ (F_net) = ΣF = F − f_s</b><br>` +
+          `F = ${F.toFixed(1)} N, f_s ต้านไว้พอดี = ${F.toFixed(1)} N (สูงสุด f_s,max = μs·mg = ${fsMax.toFixed(2)} N)<br>` +
+          `F_net = ${F.toFixed(1)} − ${F.toFixed(1)} = 0 N → a = F_net / m = 0 m/s² (วัตถุไม่ขยับ)`;
       } else {
-        formulaBox.innerHTML = `F = ${F.toFixed(1)} N > f_s,max = μs·mg = ${fsMax.toFixed(2)} N → หลุดจากแรงเสียดทานสถิต<br>ขณะเคลื่อนที่ใช้แรงเสียดทานจลน์ f_k = μk·mg = ${fk.toFixed(2)} N<br>ความเร่ง a = (F − f_k) / m ≈ ${((F - fk) / m).toFixed(2)} m/s²`;
+        const fnet = F - fk;
+        formulaBox.innerHTML =
+          `<b>แรงลัพธ์ (F_net) = ΣF = F − f_k</b><br>` +
+          `F = ${F.toFixed(1)} N (F เกิน f_s,max = ${fsMax.toFixed(2)} N จึงหลุดและใช้ f_k = μk·mg = ${fk.toFixed(2)} N ต้านแทน)<br>` +
+          `F_net = ${F.toFixed(1)} − ${fk.toFixed(2)} = ${fnet.toFixed(2)} N<br>` +
+          `<b>a = F_net / m</b> = ${fnet.toFixed(2)} / ${m.toFixed(1)} ≈ ${(fnet / m).toFixed(2)} m/s² → v และ s เพิ่มขึ้นตาม a นี้ตลอดเวลา`;
       }
     } else {
       const th = parseFloat(angleEl.value);
@@ -145,14 +159,24 @@
       const frS = muS * g * Math.cos(rad);          // max static friction (m/s²)
       const frK = muK * g * Math.cos(rad);          // kinetic friction (m/s²)
       const Fs = signedIncline(F);
-      const net = Fs / m - comp;                    // up-positive net before friction
-      formulaBox.innerHTML =
-        `เริ่มต้นที่ตำแหน่ง${position === 'low' ? 'ต่ำ (ฐาน)' : 'สูง (ยอด)'}<br>` +
-        `F = ${F.toFixed(1)} N, mg sinθ ≈ ${(m * comp).toFixed(2)} N<br>` +
-        `f_s,max = μs·mg cosθ ≈ ${(m * frS).toFixed(2)} N, f_k = μk·mg cosθ ≈ ${(m * frK).toFixed(2)} N<br>` +
-        (Math.abs(net) <= frS
-          ? `แรงลัพธ์ก่อนแรงเสียดทานไม่เกิน f_s,max วัตถุไม่ขยับ (แรงเสียดทานสถิตต้านไว้)`
-          : `แรงลัพธ์เกิน f_s,max → หลุดและเคลื่อนที่ ใช้ f_k ต้านทาง<br>ความเร่ง a ≈ ${(net - Math.sign(net) * frK).toFixed(2)} m/s² (บวก = ขึ้น, ลบ = ลง)`);
+      const netBeforeFriction = Fs / m - comp;       // up-positive, before friction
+      const mgSinTheta = m * comp;
+      if (Math.abs(netBeforeFriction) <= frS) {
+        formulaBox.innerHTML =
+          `เริ่มต้นที่ตำแหน่ง${position === 'low' ? 'ต่ำ (ฐาน)' : 'สูง (ยอด)'} (บวก = ขึ้น, ลบ = ลง)<br>` +
+          `<b>แรงลัพธ์ (F_net) = ΣF = F ∓ mg sinθ − f_s</b><br>` +
+          `F = ${F.toFixed(1)} N, mg sinθ = ${mgSinTheta.toFixed(2)} N, f_s ต้านไว้พอดี (สูงสุด f_s,max = μs·mg cosθ ≈ ${(m * frS).toFixed(2)} N)<br>` +
+          `F_net = 0 N → a = F_net / m = 0 m/s² (วัตถุไม่ขยับ)`;
+      } else {
+        const netAfterFriction = netBeforeFriction - Math.sign(netBeforeFriction) * frK;
+        const fnetForce = m * netAfterFriction;
+        formulaBox.innerHTML =
+          `เริ่มต้นที่ตำแหน่ง${position === 'low' ? 'ต่ำ (ฐาน)' : 'สูง (ยอด)'} (บวก = ขึ้น, ลบ = ลง)<br>` +
+          `<b>แรงลัพธ์ (F_net) = ΣF = F ∓ mg sinθ − f_k</b><br>` +
+          `F = ${F.toFixed(1)} N, mg sinθ = ${mgSinTheta.toFixed(2)} N, f_k = μk·mg cosθ ≈ ${(m * frK).toFixed(2)} N (เกิน f_s,max แล้วหลุดจากจุดนิ่ง)<br>` +
+          `F_net ≈ ${fnetForce.toFixed(2)} N<br>` +
+          `<b>a = F_net / m</b> ≈ ${netAfterFriction.toFixed(2)} m/s² (บวก = ขึ้น, ลบ = ลง) → v และ s เปลี่ยนตาม a นี้ตลอดเวลา`;
+      }
     }
     if (fbdVisible) drawFBD();
   }
@@ -211,6 +235,7 @@
     const groundColor = getComputedStyle(document.documentElement).getPropertyValue('--line').trim() || '#334155';
     const boxColor = getComputedStyle(document.documentElement).getPropertyValue('--accent2').trim() || '#fb923c';
     const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text').trim() || '#e2e8f0';
+    const forceColor = '#f97316';
 
     if (mode === 'flat') {
       const groundY = h - 60;
@@ -221,6 +246,7 @@
       ctx.fillStyle = boxColor;
       ctx.fillRect(x - 17, groundY - 34, 34, 34);
       drawVelocityArrow(x, groundY - 48, v, textColor);
+      drawNetForceArrow(x, groundY - 66, parseFloat(massEl.value) * a, forceColor);
     } else {
       const theta = parseFloat(angleEl.value) * Math.PI / 180;
       const baseX = 40, baseY = h - 40;
@@ -242,6 +268,13 @@
       ctx.fillRect(-17, -38, 34, 34);
       ctx.restore();
 
+      // Net force arrow, drawn parallel to the slope (positive a = up-slope),
+      // offset above the block so it never overlaps it.
+      const alongX = Math.cos(theta), alongY = -Math.sin(theta);
+      const normalX = -Math.sin(theta), normalY = -Math.cos(theta);
+      const fx = bx + normalX * 50, fy = by + normalY * 50;
+      drawNetForceArrow(fx, fy, parseFloat(massEl.value) * a, forceColor, alongX, alongY);
+
       ctx.fillStyle = textColor; ctx.font = '13px sans-serif';
       ctx.fillText(angleEl.value + '°', baseX + 26, baseY - 12);
       ctx.fillStyle = textColor === '#0f172a' ? '#64748b' : '#94a3b8';
@@ -261,6 +294,31 @@
     ctx.lineTo(x + dir * len - dir * 7, y - 5);
     ctx.lineTo(x + dir * len - dir * 7, y + 5);
     ctx.closePath(); ctx.fill();
+  }
+
+  // Draws the net-force arrow that visually ties the motion to F_net = m·a.
+  // dirX/dirY is the unit "positive" direction (horizontal for flat mode,
+  // parallel to the slope for incline mode); the arrow flips along that axis
+  // when forceVal is negative, exactly like the velocity arrow does.
+  function drawNetForceArrow(x, y, forceVal, color, dirX = 1, dirY = 0) {
+    if (Math.abs(forceVal) < 0.05) return;
+    const sign = forceVal > 0 ? 1 : -1;
+    const ux = dirX * sign, uy = dirY * sign;
+    const len = Math.min(Math.abs(forceVal) * 3, 70);
+    const x2 = x + ux * len, y2 = y + uy * len;
+    ctx.save();
+    ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x2, y2); ctx.stroke();
+    const ang = Math.atan2(uy, ux);
+    ctx.beginPath();
+    ctx.moveTo(x2, y2);
+    ctx.lineTo(x2 - 8 * Math.cos(ang - 0.4), y2 - 8 * Math.sin(ang - 0.4));
+    ctx.lineTo(x2 - 8 * Math.cos(ang + 0.4), y2 - 8 * Math.sin(ang + 0.4));
+    ctx.closePath(); ctx.fill();
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('F_net', x2 + ux * 14, y2 + uy * 14);
+    ctx.restore();
   }
 
   // ---------- Free Body Diagram ----------
