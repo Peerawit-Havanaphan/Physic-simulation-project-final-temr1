@@ -10,9 +10,9 @@
   const lblFRow = document.getElementById('lblFRow');
 
   const massEl = document.getElementById('mass'), fEl = document.getElementById('appliedF'),
-        muEl = document.getElementById('mu'), angleEl = document.getElementById('angle');
+        muSEl = document.getElementById('muS'), muKEl = document.getElementById('muK'), angleEl = document.getElementById('angle');
   const lblMass = document.getElementById('lblMass'), lblF = document.getElementById('lblF'),
-        lblMu = document.getElementById('lblMu'), lblAngle = document.getElementById('lblAngle');
+        lblMuS = document.getElementById('lblMuS'), lblMuK = document.getElementById('lblMuK'), lblAngle = document.getElementById('lblAngle');
 
   const statT = document.getElementById('statT'), statV = document.getElementById('statV'),
         statS = document.getElementById('statS'), statA = document.getElementById('statA');
@@ -38,7 +38,8 @@
   function syncLabels() {
     lblMass.textContent = parseFloat(massEl.value).toFixed(1);
     lblF.textContent = parseFloat(fEl.value).toFixed(1);
-    lblMu.textContent = parseFloat(muEl.value).toFixed(2);
+    lblMuS.textContent = parseFloat(muSEl.value).toFixed(2);
+    lblMuK.textContent = parseFloat(muKEl.value).toFixed(2);
     lblAngle.textContent = angleEl.value;
     if (mode === 'flat') {
       lblFRow.firstChild.textContent = 'แรงดึง F (N): ';
@@ -55,32 +56,42 @@
 
   // Sign convention: on the incline, POSITIVE = up-slope, matching the rendering direction.
   // The object always starts at rest; motion is driven by the applied force F, resisted
-  // by friction (up to its static maximum) and, on the incline, by gravity's component.
+  // by friction and, on the incline, by gravity's component.
+  //
+  // Two separate friction coefficients are modeled, as in real physics:
+  //  - μs (static): while at rest, this is the MAX friction can resist before the object
+  //    breaks free. If the driving force doesn't exceed μs·N, static friction holds it
+  //    in place exactly (a = 0), matching the driving force so nothing moves.
+  //  - μk (kinetic): once the object is actually sliding, kinetic friction — normally
+  //    somewhat lower than static — is what opposes the motion instead.
   function computeAccel(currentV) {
-    const mu = parseFloat(muEl.value);
+    const muS = parseFloat(muSEl.value);
+    const muK = parseFloat(muKEl.value);
     const m = parseFloat(massEl.value);
     const F = parseFloat(fEl.value);
     if (mode === 'flat') {
-      const aF = F / m;              // F always pushes in the positive direction
-      const maxFriction = mu * g;    // max static/kinetic friction deceleration (magnitude)
+      const aF = F / m;                 // F always pushes in the positive direction
+      const maxStatic = muS * g;        // static friction threshold (magnitude)
+      const maxKinetic = muK * g;       // kinetic friction while sliding (magnitude)
       if (currentV === 0) {
-        if (Math.abs(aF) <= maxFriction) return 0; // static friction holds it in place
-        return aF - Math.sign(aF) * maxFriction;
+        if (Math.abs(aF) <= maxStatic) return 0; // static friction holds it in place
+        return aF - Math.sign(aF) * maxKinetic;  // broke free: kinetic friction now applies
       }
       const dir = currentV > 0 ? 1 : -1;
-      return aF - dir * maxFriction;
+      return aF - dir * maxKinetic;
     } else {
       const theta = parseFloat(angleEl.value) * Math.PI / 180;
       const aF = signedIncline(F) / m;
-      const aGravity = -g * Math.sin(theta);        // gravity always pulls down-slope
-      const maxFriction = mu * g * Math.cos(theta); // max friction (magnitude)
+      const aGravity = -g * Math.sin(theta);              // gravity always pulls down-slope
+      const maxStatic = muS * g * Math.cos(theta);         // static friction threshold (magnitude)
+      const maxKinetic = muK * g * Math.cos(theta);        // kinetic friction while sliding (magnitude)
       const net = aF + aGravity;
       if (currentV === 0) {
-        if (Math.abs(net) <= maxFriction) return 0; // static friction holds it in place
-        return net - Math.sign(net) * maxFriction;
+        if (Math.abs(net) <= maxStatic) return 0; // static friction holds it in place
+        return net - Math.sign(net) * maxKinetic; // broke free: kinetic friction now applies
       }
       const dir = currentV > 0 ? 1 : -1;
-      return net - dir * maxFriction;
+      return net - dir * maxKinetic;
     }
   }
 
@@ -118,27 +129,30 @@
       statusBadge.className = 'badge ' + (moving ? 'moving' : 'stopped');
     }
 
-    const m = parseFloat(massEl.value), mu = parseFloat(muEl.value), F = parseFloat(fEl.value);
+    const m = parseFloat(massEl.value), muS = parseFloat(muSEl.value), muK = parseFloat(muKEl.value), F = parseFloat(fEl.value);
     if (mode === 'flat') {
-      const fMax = mu * m * g;
-      if (F <= fMax) {
-        formulaBox.innerHTML = `F = ${F.toFixed(1)} N ≤ แรงเสียดทานสูงสุด f = μmg = ${fMax.toFixed(2)} N<br>แรงเสียดทานสถิตต้านไว้พอดี วัตถุจึงไม่ขยับ`;
+      const fsMax = muS * m * g;
+      const fk = muK * m * g;
+      if (F <= fsMax) {
+        formulaBox.innerHTML = `F = ${F.toFixed(1)} N ≤ แรงเสียดทานสถิตสูงสุด f_s,max = μs·mg = ${fsMax.toFixed(2)} N<br>แรงเสียดทานสถิตต้านไว้พอดี วัตถุจึงไม่ขยับ`;
       } else {
-        formulaBox.innerHTML = `F = ${F.toFixed(1)} N, f = μmg = ${fMax.toFixed(2)} N<br>ความเร่ง a = (F − f) / m ≈ ${((F - fMax) / m).toFixed(2)} m/s²`;
+        formulaBox.innerHTML = `F = ${F.toFixed(1)} N > f_s,max = μs·mg = ${fsMax.toFixed(2)} N → หลุดจากแรงเสียดทานสถิต<br>ขณะเคลื่อนที่ใช้แรงเสียดทานจลน์ f_k = μk·mg = ${fk.toFixed(2)} N<br>ความเร่ง a = (F − f_k) / m ≈ ${((F - fk) / m).toFixed(2)} m/s²`;
       }
     } else {
       const th = parseFloat(angleEl.value);
       const rad = th * Math.PI / 180;
-      const comp = g * Math.sin(rad);          // gravity component (m/s²) down-slope
-      const fr = mu * g * Math.cos(rad);       // max friction (m/s²)
+      const comp = g * Math.sin(rad);              // gravity component (m/s²) down-slope
+      const frS = muS * g * Math.cos(rad);          // max static friction (m/s²)
+      const frK = muK * g * Math.cos(rad);          // kinetic friction (m/s²)
       const Fs = signedIncline(F);
-      const net = Fs / m - comp;                  // up-positive net before friction
+      const net = Fs / m - comp;                    // up-positive net before friction
       formulaBox.innerHTML =
         `เริ่มต้นที่ตำแหน่ง${position === 'low' ? 'ต่ำ (ฐาน)' : 'สูง (ยอด)'}<br>` +
-        `F = ${F.toFixed(1)} N, mg sinθ ≈ ${(m * comp).toFixed(2)} N, f_max = μmg cosθ ≈ ${(m * fr).toFixed(2)} N<br>` +
-        (Math.abs(net) <= fr
-          ? `แรงลัพธ์ก่อนแรงเสียดทานสมดุลกับ f สถิตพอดี วัตถุไม่ขยับ`
-          : `ความเร่ง a ≈ ${(net - Math.sign(net) * fr).toFixed(2)} m/s² (บวก = ขึ้น, ลบ = ลง)`);
+        `F = ${F.toFixed(1)} N, mg sinθ ≈ ${(m * comp).toFixed(2)} N<br>` +
+        `f_s,max = μs·mg cosθ ≈ ${(m * frS).toFixed(2)} N, f_k = μk·mg cosθ ≈ ${(m * frK).toFixed(2)} N<br>` +
+        (Math.abs(net) <= frS
+          ? `แรงลัพธ์ก่อนแรงเสียดทานไม่เกิน f_s,max วัตถุไม่ขยับ (แรงเสียดทานสถิตต้านไว้)`
+          : `แรงลัพธ์เกิน f_s,max → หลุดและเคลื่อนที่ ใช้ f_k ต้านทาง<br>ความเร่ง a ≈ ${(net - Math.sign(net) * frK).toFixed(2)} m/s² (บวก = ขึ้น, ลบ = ลง)`);
     }
     if (fbdVisible) drawFBD();
   }
@@ -263,7 +277,8 @@
     const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text').trim() || '#e2e8f0';
     const Wcolor = '#f87171', Ncolor = '#38bdf8', fcolor = '#facc15', compColor = '#a78bfa', Fcolor = '#34d399';
 
-    const m = parseFloat(massEl.value), mu = parseFloat(muEl.value), g0 = g, Fval = parseFloat(fEl.value);
+    const m = parseFloat(massEl.value), muS = parseFloat(muSEl.value), muK = parseFloat(muKEl.value), g0 = g, Fval = parseFloat(fEl.value);
+    const moving = Math.abs(v) > 0.01;
     const dirSign = v !== 0 ? (v > 0 ? 1 : -1) : (a !== 0 ? (a > 0 ? 1 : -1) : 1);
 
     fbdCtx.textBaseline = 'middle';
@@ -299,7 +314,9 @@
     }
 
     if (mode === 'flat') {
-      const Wf = m * g0, Nf = Wf, ff = mu * Nf;
+      const Wf = m * g0, Nf = Wf;
+      const fsMax = muS * Nf, fk = muK * Nf;
+      const ff = moving ? fk : Math.min(fsMax, Math.abs(Fval)); // static friction only matches the driving force, up to its max
       const cx = w / 2, cy = h / 2 + 6;
       fbdCtx.fillStyle = boxColor;
       fbdCtx.fillRect(cx - 24, cy - 24, 48, 48);
@@ -312,19 +329,21 @@
       arrow(cx, cy - 24, 0, -1, Nf, Ncolor, 'N');
       arrow(cx, cy + 24, 0, 1, Wf, Wcolor, 'W');
       arrow(cx + 24, cy, 1, 0, Fval, Fcolor, 'F');
-      arrow(cx - dirSign * 30, cy + 44, -dirSign, 0, ff, fcolor, 'f');
+      arrow(cx - dirSign * 30, cy + 44, -dirSign, 0, ff, fcolor, moving ? 'f_k' : 'f_s');
 
       fbdFormula.innerHTML =
         `<span style="color:${Ncolor}">■</span> N = ${Nf.toFixed(1)} N &nbsp; ` +
         `<span style="color:${Wcolor}">■</span> W = mg = ${Wf.toFixed(1)} N &nbsp; ` +
-        `<span style="color:${Fcolor}">■</span> F = ${Fval.toFixed(1)} N &nbsp; ` +
-        `<span style="color:${fcolor}">■</span> f = μN = ${ff.toFixed(1)} N<br>` +
-        `บนพื้นราบ N สมดุลกับ W ในแนวดิ่ง (N = mg) ส่วน F ดันวัตถุ และแรงเสียดทาน f = μN ต้านทิศการเคลื่อนที่เสมอ`;
+        `<span style="color:${Fcolor}">■</span> F = ${Fval.toFixed(1)} N<br>` +
+        `<span style="color:${fcolor}">■</span> f_s,max = μs·N = ${fsMax.toFixed(1)} N &nbsp; ` +
+        `f_k = μk·N = ${fk.toFixed(1)} N &nbsp; (ตอนนี้ใช้ ${moving ? 'f_k เพราะกำลังเคลื่อนที่' : 'f_s เพราะยังนิ่งอยู่'} ≈ ${ff.toFixed(1)} N)<br>` +
+        `บนพื้นราบ N สมดุลกับ W ในแนวดิ่ง (N = mg) ก่อนขยับแรงเสียดทานสถิตต้านตาม F พอดี (สูงสุด f_s,max) พอหลุดแล้วจะใช้ f_k ต้านทิศการเคลื่อนที่แทน`;
     } else {
       const theta = parseFloat(angleEl.value) * Math.PI / 180;
       const Wf = m * g0;
       const Nf = Wf * Math.cos(theta);
-      const ff = mu * Nf;
+      const fsMax = muS * Nf, fk = muK * Nf;
+      const ff = moving ? fk : Math.min(fsMax, Math.abs(signedIncline(Fval) - Wf * Math.sin(theta)));
       const compAlong = Wf * Math.sin(theta);
       const compPerp = Wf * Math.cos(theta);
 
@@ -354,7 +373,7 @@
       arrow(topPt.x, topPt.y, normalDir.x, normalDir.y, Nf, Ncolor, 'N');
       arrow(centerPt.x, centerPt.y, 0, 1, Wf, Wcolor, 'W');
       const fDir = dirSign > 0 ? { x: -upSlope.x, y: -upSlope.y } : upSlope; // opposes motion
-      arrow(contactPt.x, contactPt.y, fDir.x, fDir.y, ff, fcolor, 'f');
+      arrow(contactPt.x, contactPt.y, fDir.x, fDir.y, ff, fcolor, moving ? 'f_k' : 'f_s');
       // F floats just above the block, parallel to the slope, offset along the
       // normal so it never overlaps the contact-line friction arrow below it.
       const fPushDir = position === 'low' ? upSlope : { x: -upSlope.x, y: -upSlope.y };
@@ -382,11 +401,12 @@
       fbdFormula.innerHTML =
         `<span style="color:${Ncolor}">■</span> N = mg cosθ = ${Nf.toFixed(1)} N &nbsp; ` +
         `<span style="color:${Wcolor}">■</span> W = mg = ${Wf.toFixed(1)} N &nbsp; ` +
-        `<span style="color:${Fcolor}">■</span> F = ${Fval.toFixed(1)} N &nbsp; ` +
-        `<span style="color:${fcolor}">■</span> f = μN = ${ff.toFixed(1)} N<br>` +
+        `<span style="color:${Fcolor}">■</span> F = ${Fval.toFixed(1)} N<br>` +
+        `<span style="color:${fcolor}">■</span> f_s,max = μs·N = ${fsMax.toFixed(1)} N &nbsp; ` +
+        `f_k = μk·N = ${fk.toFixed(1)} N &nbsp; (ตอนนี้ใช้ ${moving ? 'f_k เพราะกำลังเคลื่อนที่' : 'f_s เพราะยังนิ่งอยู่'} ≈ ${ff.toFixed(1)} N)<br>` +
         `<span style="color:${compColor}">■</span> mg sinθ = ${compAlong.toFixed(1)} N (ทำให้ไถลลง) &nbsp; ` +
         `<span style="color:#2dd4bf">■</span> mg cosθ = ${compPerp.toFixed(1)} N (สมดุลกับ N)<br>` +
-        `เริ่มจากตำแหน่ง${position === 'low' ? 'ต่ำ (ฐาน)' : 'สูง (ยอด)'} — F ดันไปตามพื้นเอียง ส่วนแรงเสียดทาน f ต้านทิศการเคลื่อนที่เสมอ`;
+        `เริ่มจากตำแหน่ง${position === 'low' ? 'ต่ำ (ฐาน)' : 'สูง (ยอด)'} — F ดันไปตามพื้นเอียง ก่อนขยับ f_s ต้านไว้จนถึง f_s,max พอหลุดแล้วใช้ f_k ต้านทิศการเคลื่อนที่แทน`;
     }
   }
 
@@ -414,8 +434,12 @@
   posLow.addEventListener('click', () => switchPosition('low'));
   posHigh.addEventListener('click', () => switchPosition('high'));
 
-  [massEl, fEl, muEl, angleEl].forEach(el => {
+  [massEl, fEl, muSEl, muKEl, angleEl].forEach(el => {
     el.addEventListener('input', () => {
+      // Physically, kinetic friction shouldn't exceed static friction. If the user
+      // drags one past the other, nudge the other one along so μk ≤ μs always holds.
+      if (el === muSEl && parseFloat(muSEl.value) < parseFloat(muKEl.value)) muKEl.value = muSEl.value;
+      if (el === muKEl && parseFloat(muKEl.value) > parseFloat(muSEl.value)) muSEl.value = muKEl.value;
       syncLabels();
       if (!running) reset(); else if (fbdVisible) drawFBD();
     });
