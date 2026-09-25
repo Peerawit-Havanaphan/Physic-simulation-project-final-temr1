@@ -161,10 +161,11 @@
       const Fs = signedIncline(F);
       const netBeforeFriction = Fs / m - comp;       // up-positive, before friction
       const mgSinTheta = m * comp;
+      const gravitySign = position === 'low' ? '−' : '+';
       if (Math.abs(netBeforeFriction) <= frS) {
         formulaBox.innerHTML =
           `เริ่มต้นที่ตำแหน่ง${position === 'low' ? 'ต่ำ (ฐาน)' : 'สูง (ยอด)'} (บวก = ขึ้น, ลบ = ลง)<br>` +
-          `<b>แรงลัพธ์ (F_net) = ΣF = F ∓ mg sinθ − f_s</b><br>` +
+          `<b>แรงลัพธ์ (F_net) = ΣF = F ${gravitySign} mg sinθ − f_s</b><br>` +
           `F = ${F.toFixed(1)} N, mg sinθ = ${mgSinTheta.toFixed(2)} N, f_s ต้านไว้พอดี (สูงสุด f_s,max = μs·mg cosθ ≈ ${(m * frS).toFixed(2)} N)<br>` +
           `F_net = 0 N → a = F_net / m = 0 m/s² (วัตถุไม่ขยับ)`;
       } else {
@@ -172,7 +173,7 @@
         const fnetForce = m * netAfterFriction;
         formulaBox.innerHTML =
           `เริ่มต้นที่ตำแหน่ง${position === 'low' ? 'ต่ำ (ฐาน)' : 'สูง (ยอด)'} (บวก = ขึ้น, ลบ = ลง)<br>` +
-          `<b>แรงลัพธ์ (F_net) = ΣF = F ∓ mg sinθ − f_k</b><br>` +
+          `<b>แรงลัพธ์ (F_net) = ΣF = F ${gravitySign} mg sinθ − f_k</b><br>` +
           `F = ${F.toFixed(1)} N, mg sinθ = ${mgSinTheta.toFixed(2)} N, f_k = μk·mg cosθ ≈ ${(m * frK).toFixed(2)} N (เกิน f_s,max แล้วหลุดจากจุดนิ่ง)<br>` +
           `F_net ≈ ${fnetForce.toFixed(2)} N<br>` +
           `<b>a = F_net / m</b> ≈ ${netAfterFriction.toFixed(2)} m/s² (บวก = ขึ้น, ลบ = ลง) → v และ s เปลี่ยนตาม a นี้ตลอดเวลา`;
