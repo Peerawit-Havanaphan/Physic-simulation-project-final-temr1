@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>แบบจำลองการเคลื่อนที่ภายใต้แรงเสียดทาน</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <h1>🧲 แบบจำลองการเคลื่อนที่ภายใต้แรงเสียดทาน</h1>
+  <p class="sub">ปรับค่ามวล แรงดึง F (N) สัมประสิทธิ์แรงเสียดทาน มุมเอียง และตำแหน่งเริ่มต้น แล้วดูการเคลื่อนที่พร้อม Free Body Diagram</p>
+
+  <div class="tabs">
+    <div class="tab active" id="tabFlat">พื้นราบ</div>
+    <div class="tab" id="tabIncline">พื้นเอียง</div>
+  </div>
+
+  <div class="pos-row" id="posRow" style="display:none;">
+    <div class="pos-btn active" id="posLow">⬇ เริ่มที่ตำแหน่งต่ำ (ฐาน)</div>
+    <div class="pos-btn" id="posHigh">⬆ เริ่มที่ตำแหน่งสูง (ยอด)</div>
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <canvas id="cv" width="640" height="360"></canvas>
+      <div class="stats">
+        <div class="stat"><div class="k">เวลา (s)</div><div class="v" id="statT">0.00</div></div>
+        <div class="stat"><div class="k">ความเร็ว (m/s)</div><div class="v" id="statV">0.00</div></div>
+        <div class="stat"><div class="k">ระยะทาง (m)</div><div class="v" id="statS">0.00</div></div>
+        <div class="stat"><div class="k">ความเร่ง (m/s²)</div><div class="v" id="statA">0.00</div></div>
+      </div>
+      <div class="formula" id="formulaBox"></div>
+    </div>
+
+    <div class="panel controls">
+      <div class="row"><span>สถานะ</span><span class="badge moving" id="statusBadge">กำลังเคลื่อนที่</span></div>
+
+      <label>มวลของวัตถุ (kg): <b id="lblMass">2.0</b></label>
+      <input type="range" id="mass" min="0.5" max="10" step="0.1" value="2">
+
+      <label id="lblFRow">แรงดึง F (N): <b id="lblF">15.0</b></label>
+      <input type="range" id="appliedF" min="0" max="100" step="0.5" value="15">
+
+      <label>สัมประสิทธิ์แรงเสียดทาน (μ): <b id="lblMu">0.25</b></label>
+      <input type="range" id="mu" min="0" max="1" step="0.01" value="0.25">
+
+      <div id="angleRow" style="display:none;">
+        <label>มุมเอียง (°): <b id="lblAngle">20</b></label>
+        <input type="range" id="angle" min="0" max="60" step="1" value="20">
+      </div>
+
+      <div class="btns">
+        <button class="primary" id="btnStart">▶ เริ่ม</button>
+        <button id="btnPause">⏸ หยุดชั่วคราว</button>
+        <button id="btnReset">↺ รีเซ็ต</button>
+      </div>
+      <div class="btns">
+        <button id="btnFBD">📐 แสดง Free Body Diagram</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" id="fbdPanel" style="display:none; margin-top:16px;">
+    <div class="row" style="margin-bottom:10px;"><span style="font-weight:600;">แผนภาพวัตถุอิสระ (Free Body Diagram)</span></div>
+    <canvas id="fbdCv" width="640" height="300"></canvas>
+    <div class="formula" id="fbdFormula"></div>
+  </div>
+</div>
+<script src="script.js"></script>
+</body>
+</html>
